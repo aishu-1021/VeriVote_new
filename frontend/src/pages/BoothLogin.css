@@ -1,0 +1,303 @@
+.booth-login-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #eef2f5;
+}
+
+.booth-top-bar {
+  background: var(--teal-dark);
+  color: rgba(255,255,255,0.85);
+  font-size: 11px;
+  padding: 5px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.polling-live-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.15);
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 11px;
+  color: white;
+}
+
+.live-dot {
+  width: 7px;
+  height: 7px;
+  background: #4ade80;
+  border-radius: 50%;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.booth-header {
+  background: white;
+  padding: 14px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.booth-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ashoka-chakra {
+  font-size: 36px;
+  color: var(--teal-dark);
+}
+
+.booth-site-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--teal-dark);
+}
+
+.booth-site-subtitle {
+  font-size: 11px;
+  color: var(--gray-500);
+}
+
+.booth-header-right {
+  text-align: right;
+}
+
+.booth-date {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+.booth-election {
+  font-size: 11px;
+  color: var(--gray-500);
+}
+
+.booth-navbar {
+  background: var(--teal-mid);
+  padding: 0 32px;
+  display: flex;
+}
+
+.booth-navbar a {
+  color: rgba(255,255,255,0.8);
+  text-decoration: none;
+  padding: 12px 20px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.booth-navbar a.active {
+  color: white;
+  border-bottom: 2px solid white;
+  background: rgba(255,255,255,0.1);
+}
+
+.election-banner {
+  background: var(--teal-mid);
+  opacity: 0.85;
+  color: white;
+  text-align: center;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.election-banner span {
+  font-size: 11px;
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+.booth-login-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  gap: 16px;
+}
+
+.booth-login-card {
+  width: 100%;
+  max-width: 500px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+}
+
+.booth-card-header {
+  background: var(--teal-dark);
+  color: white;
+  text-align: center;
+  padding: 28px 24px 20px;
+}
+
+.shield-icon { font-size: 28px; margin-bottom: 8px; }
+
+.booth-card-header h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.booth-card-header p {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.date-badge {
+  display: inline-block;
+  background: rgba(255,255,255,0.15);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  margin-top: 10px;
+}
+
+.booth-card-body {
+  background: white;
+  padding: 24px 28px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.election-info-box {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+  padding: 14px;
+  text-align: center;
+}
+
+.election-info-label {
+  font-size: 10px;
+  color: #0369a1;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.election-info-date {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.election-info-sub {
+  font-size: 11px;
+  color: var(--gray-500);
+  margin-top: 2px;
+}
+
+.booth-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: var(--red);
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.booth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.booth-field label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-700);
+}
+
+.req { color: var(--red); }
+
+.booth-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.booth-input-wrap input {
+  width: 100%;
+  padding: 10px 12px 10px 36px;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+}
+
+.booth-input-wrap input:focus {
+  border-color: var(--teal-light);
+  box-shadow: 0 0 0 3px rgba(74,159,165,0.15);
+}
+
+.booth-input-icon {
+  position: absolute;
+  left: 10px;
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.booth-input-icon-right {
+  position: absolute;
+  right: 10px;
+  cursor: pointer;
+}
+
+.booth-login-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--teal-dark);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.booth-login-btn:hover:not(:disabled) { background: var(--teal-mid); }
+.booth-login-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+.booth-security-notice {
+  width: 100%;
+  max-width: 500px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-left: 4px solid var(--orange);
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--gray-700);
+}
+
+.booth-footer {
+  background: white;
+  border-top: 1px solid var(--gray-200);
+  padding: 10px 32px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--gray-400);
+}
