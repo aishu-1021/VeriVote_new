@@ -1,6 +1,7 @@
 import sys
 import os
 import base64
+import hashlib
 import pickle
 import secrets
 import cv2
@@ -13,6 +14,7 @@ from django.contrib.auth.models import User
 from .models import BoothOfficer, VoteRecord
 from voters.models import Voter
 from fraud_detection.models import FraudAlert
+from audit_chain.chain import append_block
 
 BIOMETRIC_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -22,6 +24,11 @@ if BIOMETRIC_PATH not in sys.path:
     sys.path.insert(0, BIOMETRIC_PATH)
 
 booth_tokens = {}
+
+
+def hash_voter_id(voter_id: str) -> str:
+    """Hash voter ID before storing on blockchain — never store raw IDs on-chain."""
+    return hashlib.sha256(voter_id.encode()).hexdigest()[:16]
 
 
 def get_booth_user(request):
@@ -114,6 +121,15 @@ class BoothOfficerLoginView(APIView):
         officer.is_session_active = True
         officer.save()
 
+        append_block(
+            event_type='OFFICER_LOGIN',
+            data={
+                'badge_number': officer.badge_number,
+                'booth_id':     officer.booth_id,
+                'constituency': officer.constituency,
+            }
+        )
+
         return Response({
             'token': token,
             'officer': {
@@ -129,8 +145,24 @@ class BoothOfficerLoginView(APIView):
 class BoothOfficerLogoutView(APIView):
     def post(self, request):
         token = request.headers.get('Authorization', '').replace('Token ', '')
+        user = get_booth_user(request)
+
+        if user:
+            try:
+                officer = user.booth_profile
+                append_block(
+                    event_type='OFFICER_LOGOUT',
+                    data={
+                        'badge_number': officer.badge_number,
+                        'booth_id':     officer.booth_id,
+                    }
+                )
+            except Exception:
+                pass
+
         if token in booth_tokens:
             del booth_tokens[token]
+
         return Response({'message': 'Logged out.'})
 
 
@@ -157,23 +189,23 @@ class BoothDashboardView(APIView):
 
         recent = today_records.order_by('-timestamp')[:5]
         recent_data = [{
-            'voter_id': r.voter_id,
-            'result': r.result,
-            'timestamp': r.timestamp.strftime('%I:%M %p'),
-            'match_score': r.match_score,
+            'voter_id':            r.voter_id,
+            'result':              r.result,
+            'timestamp':           r.timestamp.strftime('%I:%M %p'),
+            'match_score':         r.match_score,
             'is_biometric_exempt': r.is_biometric_exempt,
         } for r in recent]
 
         return Response({
-            'officer_name': f"{user.first_name} {user.last_name}",
-            'badge_number': officer.badge_number,
-            'booth_id': officer.booth_id,
-            'constituency': officer.constituency,
+            'officer_name':     f"{user.first_name} {user.last_name}",
+            'badge_number':     officer.badge_number,
+            'booth_id':         officer.booth_id,
+            'constituency':     officer.constituency,
             'total_registered': total_registered,
-            'votes_cast': votes_cast,
-            'rejected_today': rejected_today,
-            'remaining': remaining,
-            'recent_activity': recent_data,
+            'votes_cast':       votes_cast,
+            'rejected_today':   rejected_today,
+            'remaining':        remaining,
+            'recent_activity':  recent_data,
         })
 
 
@@ -187,13 +219,13 @@ class VoterLookupView(APIView):
         try:
             voter = Voter.objects.get(voter_id=voter_id.upper())
             return Response({
-                'voter_id': voter.voter_id,
-                'full_name': voter.full_name,
+                'voter_id':              voter.voter_id,
+                'full_name':             voter.full_name,
                 'assembly_constituency': voter.assembly_constituency,
-                'assigned_booth': voter.assigned_booth,
-                'has_voted': voter.has_voted,
-                'status': voter.status,
-                'fingerprint_template': base64.b64encode(
+                'assigned_booth':        voter.assigned_booth,
+                'has_voted':             voter.has_voted,
+                'status':                voter.status,
+                'fingerprint_template':  base64.b64encode(
                     bytes(voter.fingerprint_template)
                 ).decode('utf-8') if voter.fingerprint_template else None,
             })
@@ -222,19 +254,24 @@ class VerifyFingerprintView(APIView):
         try:
             from capture import capture_and_save
 
-            # Step 1 — Capture live fingerprint
             safe_id = voter_id.replace('/', '_').replace('\\', '_')
             capture_result = capture_and_save(voter_id=f"verify_{safe_id}")
 
             if capture_result is None:
+                append_block(
+                    event_type='VERIFICATION_FAILED',
+                    data={
+                        'voter_id_hash': hash_voter_id(voter_id),
+                        'booth_id':      officer.booth_id,
+                        'reason':        'Fingerprint scan failed after 3 attempts.',
+                    }
+                )
                 return Response({
                     'result': 'REJECTED',
                     'reason': 'Fingerprint scan failed after 3 attempts.',
                     'match_score': 0,
                 })
 
-            # Step 2 — Get ISO template from live scan
-            # capture_and_save() returns key "iso_template" (not "iso_bytes")
             live_iso_bytes = capture_result.get('iso_template')
 
             if not live_iso_bytes:
@@ -244,14 +281,18 @@ class VerifyFingerprintView(APIView):
                     'match_score': 0,
                 })
 
-            # Step 3 — Decode stored ISO template from DB
             stored_iso_bytes = base64.b64decode(stored_template_b64)
-
-            # Step 4 — ISO match (proper minutiae-based matching)
             is_match, score = iso_match_with_scanner(live_iso_bytes, stored_iso_bytes)
 
             if is_match is None:
-                # Scanner unavailable during verification — fail safe
+                append_block(
+                    event_type='VERIFICATION_FAILED',
+                    data={
+                        'voter_id_hash': hash_voter_id(voter_id),
+                        'booth_id':      officer.booth_id,
+                        'reason':        'Scanner unavailable.',
+                    }
+                )
                 return Response({
                     'result': 'REJECTED',
                     'reason': 'Biometric scanner unavailable. Please use OTP fallback.',
@@ -259,6 +300,15 @@ class VerifyFingerprintView(APIView):
                 })
 
             if is_match:
+                append_block(
+                    event_type='VERIFICATION_APPROVED',
+                    data={
+                        'voter_id_hash': hash_voter_id(voter_id),
+                        'booth_id':      officer.booth_id,
+                        'officer_id':    officer.badge_number,
+                        'match_score':   score,
+                    }
+                )
                 return Response({
                     'result': 'APPROVED',
                     'reason': 'Fingerprint matched successfully.',
@@ -271,6 +321,16 @@ class VerifyFingerprintView(APIView):
                     booth_id=officer.booth_id,
                     description=f'Fingerprint mismatch at booth {officer.booth_id}. ISO Score: {score}',
                     severity='high',
+                )
+                append_block(
+                    event_type='VERIFICATION_REJECTED',
+                    data={
+                        'voter_id_hash': hash_voter_id(voter_id),
+                        'booth_id':      officer.booth_id,
+                        'officer_id':    officer.badge_number,
+                        'match_score':   score,
+                        'reason':        'Fingerprint mismatch.',
+                    }
                 )
                 return Response({
                     'result': 'REJECTED',
@@ -311,6 +371,14 @@ class RecordVoteView(APIView):
                 description=f'Duplicate vote attempt at booth {officer.booth_id}.',
                 severity='high',
             )
+            append_block(
+                event_type='DUPLICATE_VOTE_ATTEMPT',
+                data={
+                    'voter_id_hash': hash_voter_id(voter_id),
+                    'booth_id':      officer.booth_id,
+                    'officer_id':    officer.badge_number,
+                }
+            )
             return Response({'error': 'Voter has already voted.'}, status=400)
 
         voter.has_voted = True
@@ -321,6 +389,16 @@ class RecordVoteView(APIView):
             booth=officer,
             result='approved',
             match_score=match_score,
+        )
+
+        append_block(
+            event_type='VOTE_RECORDED',
+            data={
+                'voter_id_hash': hash_voter_id(voter_id),
+                'booth_id':      officer.booth_id,
+                'officer_id':    officer.badge_number,
+                'match_score':   float(match_score),
+            }
         )
 
         return Response({'message': 'Vote recorded successfully.'})
@@ -338,21 +416,19 @@ class CaptureFingerprintView(APIView):
                     'error': 'Fingerprint capture failed. Check scanner connection.'
                 }, status=400)
 
-            # Get ISO template — this is what gets stored in DB at enrollment
             iso_bytes = capture_result.get('iso_template')
             quality = capture_result.get('quality', 0)
 
             if not iso_bytes:
                 return Response({'error': 'ISO template not returned by scanner.'}, status=400)
 
-            # Encode ISO bytes as base64 — stored directly as fingerprint_template in DB
             iso_b64 = base64.b64encode(iso_bytes).decode('utf-8')
 
             return Response({
-                'success': True,
-                'descriptor_b64': iso_b64,        # same field name — frontend unchanged
-                'quality': quality,
-                'keypoint_count': len(iso_bytes)  # ISO size in bytes instead of ORB keypoints
+                'success':        True,
+                'descriptor_b64': iso_b64,
+                'quality':        quality,
+                'keypoint_count': len(iso_bytes)
             })
 
         except ImportError as e:
